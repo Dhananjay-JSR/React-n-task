@@ -1,10 +1,28 @@
-import { createContext, useReducer } from "react";
-
+import { createContext, useEffect, useReducer } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 type Todo = {
   id: number;
   taskName: string;
   dueDate: Date;
   isCompleted: boolean;
+};
+
+const storeData = async (value: Todo[]) => {
+  try {
+    const jsonValue = JSON.stringify(value);
+    await AsyncStorage.setItem("todo-key", jsonValue);
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const getData = async () => {
+  try {
+    const jsonValue = await AsyncStorage.getItem("todo-key");
+    return jsonValue != null ? JSON.parse(jsonValue) : null;
+  } catch (e) {
+    console.error(e);
+  }
 };
 
 const initialState: Todo[] = [];
@@ -14,6 +32,7 @@ export enum ActionType {
   UPDATE_TODO_NAME = "UPDATE_TODO_NAME",
   MARK_AS_COMPLETED = "MARK_AS_COMPLETED",
   DELETE_COMPLETED = "DELETE_COMPLETED",
+  REPLACE_TODO = "REPLACE_TODO",
 }
 
 type ActionTypeCast = {
@@ -23,6 +42,8 @@ type ActionTypeCast = {
 
 const reducer = (state: Todo[], action: ActionTypeCast) => {
   switch (action.type) {
+    case ActionType.REPLACE_TODO:
+      return action.payload;
     case ActionType.ADD_TODO:
       return [...state, action.payload];
     case ActionType.UPDATE_TODO_NAME:
@@ -66,6 +87,25 @@ export default function StorageProvider({
   children: React.ReactNode;
 }) {
   const [state, dispatch] = useReducer(reducer, initialState);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const data = await getData();
+      if (data) {
+        const parsedData = data as Todo[];
+        dispatch({ type: ActionType.REPLACE_TODO, payload: parsedData });
+      }
+    };
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    const saveData = async () => {
+      await storeData(state);
+    };
+
+    saveData();
+  }, [state]);
   return (
     <TodoContext.Provider
       value={{
